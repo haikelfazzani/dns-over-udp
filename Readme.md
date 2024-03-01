@@ -1,4 +1,4 @@
-# DNS forward
+# DNS forward over UDP
 
 ```go
 // default config

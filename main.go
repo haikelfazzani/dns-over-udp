@@ -26,6 +26,7 @@ type DNSConfig struct {
 	Laddr         string
 	Raddr         string
 	UseWildCard   bool // *.google.com
+	Timeout       uint8
 }
 
 var config = &DNSConfig{
@@ -33,12 +34,13 @@ var config = &DNSConfig{
 	Laddr:         ":53",
 	Raddr:         "8.8.8.8:53",
 	UseWildCard:   true,
+	Timeout:       5,
 }
 
 func main() {
 	server := &dns.Server{Addr: config.Laddr, Net: "udp"}
 	dns.HandleFunc(".", handleDNSRequest)
-	log.Printf("Server listen on %s", config.Laddr)
+	log.Printf("\nDNS Proxy Server listen on %s", config.Laddr)
 	log.Fatal(server.ListenAndServe())
 }
 
@@ -60,8 +62,6 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 			}
 		case dns.TypeMX:
 			// Handle MX record queries
-			// Here, you can add your logic to handle MX records
-			// For simplicity, let's just respond with NXDOMAIN
 			m := new(dns.Msg)
 			m.SetReply(r)
 			m.SetRcode(r, dns.RcodeNameError)
@@ -77,13 +77,9 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func checkHosts(host string) string {
-	// Remove any trailing dot from the host name
 	host = strings.TrimSuffix(host, ".")
-
-	// Regex pattern for matching wildcard domains
 	wildcardPattern := regexp.MustCompile(`^\s*\*\s*\.(.+)$`)
 
-	// Open the hosts file
 	file, err := os.Open("/etc/hosts")
 	if err != nil {
 		log.Fatal(err)
@@ -97,16 +93,15 @@ func checkHosts(host string) string {
 			ip := fields[0]
 			hosts_domain := fields[1]
 
-			// Handle wildcard matching or direct equality
 			if config.UseWildCard && wildcardPattern.MatchString(hosts_domain) {
-				// Extract domain part from wildcard pattern
+
 				domain := wildcardPattern.FindStringSubmatch(hosts_domain)[1]
 				if strings.HasSuffix(host, "."+domain) {
-					fmt.Printf("%s[%s] Domain found: %s%s\n", ColorYellow, hosts_domain, host, ColorReset)
+					fmt.Printf("%s[%s] Domain found: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
 					return ip
 				}
 			} else if host == hosts_domain {
-				fmt.Printf("%s[%s] Domain found: %s%s\n", ColorYellow, hosts_domain, host, ColorReset)
+				fmt.Printf("%s[%s] Domain found: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
 				return ip
 			}
 		}
@@ -122,7 +117,7 @@ func checkHosts(host string) string {
 
 func queryRemote(w dns.ResponseWriter, r *dns.Msg) {
 	c := new(dns.Client)
-	c.Timeout = time.Second * 5 // Set timeout to 5 seconds
+	c.Timeout = time.Second * time.Duration(config.Timeout)
 	in, _, err := c.Exchange(r, config.Raddr)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {

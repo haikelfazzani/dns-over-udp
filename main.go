@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,23 +15,24 @@ import (
 
 // ANSI color escape codes
 const (
-	ColorRed   = "\033[31m"
-	ColorGreen = "\033[32m"
-	ColorReset = "\033[0m"
+	ColorRed    = "\033[31m"
+	ColorGreen  = "\033[32m"
+	ColorYellow = "\033[33m"
+	ColorReset  = "\033[0m"
 )
 
 type DNSConfig struct {
-	Laddr       string
-	Raddr       string
-	UseHosts    bool
-	UseWildCard bool // *.google.com
+	HostsFilePath string
+	Laddr         string
+	Raddr         string
+	UseWildCard   bool // *.google.com
 }
 
 var config = &DNSConfig{
-	Laddr:       ":53",
-	Raddr:       "8.8.8.8:53",
-	UseHosts:    false,
-	UseWildCard: true,
+	HostsFilePath: "/etc/hosts",
+	Laddr:         ":53",
+	Raddr:         "8.8.8.8:53",
+	UseWildCard:   true,
 }
 
 func main() {
@@ -74,8 +77,11 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func checkHosts(host string) string {
-	// Remove the trailing dot from the host name
+	// Remove any trailing dot from the host name
 	host = strings.TrimSuffix(host, ".")
+
+	// Regex pattern for matching wildcard domains
+	wildcardPattern := regexp.MustCompile(`^\s*\*\s*\.(.+)$`)
 
 	// Open the hosts file
 	file, err := os.Open("/etc/hosts")
@@ -91,8 +97,16 @@ func checkHosts(host string) string {
 			ip := fields[0]
 			hosts_domain := fields[1]
 
-			// Handle wildcard matching and equality
-			if (config.UseWildCard && strings.HasSuffix(host, "."+hosts_domain) || hosts_domain == "*."+host) || host == hosts_domain {
+			// Handle wildcard matching or direct equality
+			if config.UseWildCard && wildcardPattern.MatchString(hosts_domain) {
+				// Extract domain part from wildcard pattern
+				domain := wildcardPattern.FindStringSubmatch(hosts_domain)[1]
+				if strings.HasSuffix(host, "."+domain) {
+					fmt.Printf("%s[%s] Domain found: %s%s\n", ColorYellow, hosts_domain, host, ColorReset)
+					return ip
+				}
+			} else if host == hosts_domain {
+				fmt.Printf("%s[%s] Domain found: %s%s\n", ColorYellow, hosts_domain, host, ColorReset)
 				return ip
 			}
 		}
@@ -102,7 +116,7 @@ func checkHosts(host string) string {
 		log.Fatal(err)
 	}
 
-	log.Printf("Domain not found in /etc/hosts: %s%s%s\n", ColorGreen, host, ColorReset)
+	fmt.Printf("%s[] Domain Not Found: %s%s\n", ColorGreen, host, ColorReset)
 	return ""
 }
 

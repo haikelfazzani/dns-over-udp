@@ -23,24 +23,26 @@ const (
 )
 
 type DNSConfig struct {
-	HostsFilePath  string
-	Laddr          string
-	Raddr          string
-	ListRemoteAddr []string
-	UseWildCard    bool // *.google.com
-	Timeout        uint8
+	HostsFilePath string
+	Laddr         string
+	Raddr         string
+	UseWildCard   bool // *.google.com
+	Timeout       uint8
 }
 
 var config = &DNSConfig{
-	HostsFilePath:  "/etc/hosts",
-	Laddr:          ":53",
-	Raddr:          "8.8.8.8:53",
-	ListRemoteAddr: []string{"8.8.8.8:53", "8.8.4.4:53", "9.9.9.9:53"},
-	UseWildCard:    true,
-	Timeout:        5,
+	HostsFilePath: "/etc/hosts",
+	Laddr:         ":53",
+	Raddr:         "8.8.8.8:53",
+	UseWildCard:   true,
+	Timeout:       15,
 }
 
 func main() {
+	StartServer()
+}
+
+func StartServer() {
 	server := &dns.Server{Addr: config.Laddr, Net: "udp"}
 	dns.HandleFunc(".", handleDNSRequest)
 	log.Printf("\n%sDNS Proxy Server listen on %s%s\n", ColorBlue, config.Laddr, ColorReset)
@@ -100,11 +102,11 @@ func checkHostsFile(host string) string {
 
 				domain := wildcardPattern.FindStringSubmatch(hosts_domain)[1]
 				if strings.HasSuffix(host, "."+domain) {
-					fmt.Printf("%s[%s] Resolve From File: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
+					fmt.Printf("%s[%s] Resolve From Hosts File: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
 					return ip
 				}
 			} else if host == hosts_domain {
-				fmt.Printf("%s[%s] Resolve From File: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
+				fmt.Printf("%s[%s] Resolve From Hosts File: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
 				return ip
 			}
 		}
@@ -125,23 +127,13 @@ func queryRemote(w dns.ResponseWriter, r *dns.Msg) {
 	in, _, err := c.Exchange(r, config.Raddr)
 
 	if err != nil {
-		for _, raddr := range config.ListRemoteAddr {
-
-			config.Raddr = raddr
-
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				log.Printf("UDP read timeout: %s", err)
-				// Retry query with fallback DNS server
-				log.Printf("%sRetrying query with fallback DNS server %s %s", ColorBlue, raddr, ColorReset)
-				in, _, err = c.Exchange(r, raddr)
-				if err != nil {
-					log.Fatal(err)
-				}
-				w.WriteMsg(in)
-				return
-			}
-			log.Fatal(err)
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			log.Printf("> UDP read timeout: %s", err)
+			log.Printf("%sRetrying query %s %s", ColorBlue, config.Raddr, ColorReset)
+			w.WriteMsg(in)
+			return
 		}
+		log.Fatal(err)
 
 	}
 

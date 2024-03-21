@@ -13,7 +13,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-// ANSI color escape codes
 const (
 	ColorRed    = "\033[31m"
 	ColorGreen  = "\033[32m"

@@ -23,7 +23,5 @@ var config = &DNSConfig{
 
 - [x] Support wildcards
 - [ ] support for multiple hosts file
-- [ ] Authentification
 - [ ] block by country
-- [ ] block domain format IP
-- [ ] DNS over HTTPS
+- [ ] block domain by IP

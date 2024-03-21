@@ -41,7 +41,7 @@ var config = &DNSConfig{
 func main() {
 	server := &dns.Server{Addr: config.Laddr, Net: "udp"}
 	dns.HandleFunc(".", handleDNSRequest)
-	log.Printf("\n%sDNS Proxy Server listen on %s%s\n", ColorBlue, config.Laddr, ColorReset)
+	log.Printf("\n%sDNS Server listen on %s%s\n", ColorBlue, config.Laddr, ColorReset)
 	log.Fatal(server.ListenAndServe())
 }
 

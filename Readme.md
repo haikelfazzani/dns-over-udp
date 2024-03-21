@@ -3,7 +3,7 @@
 ### Build and Run
 
 ```shell
-go build . && sudo ./main
+go build main.go && sudo ./main
 ```
 
 ### Configuration

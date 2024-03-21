@@ -39,10 +39,6 @@ var config = &DNSConfig{
 }
 
 func main() {
-	StartServer()
-}
-
-func StartServer() {
 	server := &dns.Server{Addr: config.Laddr, Net: "udp"}
 	dns.HandleFunc(".", handleDNSRequest)
 	log.Printf("\n%sDNS Proxy Server listen on %s%s\n", ColorBlue, config.Laddr, ColorReset)
@@ -51,33 +47,43 @@ func StartServer() {
 
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	for _, question := range r.Question {
+		ip := checkHostsFile(question.Name)
+		var rr dns.RR
+		var rrtype uint16
+
 		switch question.Qtype {
 		case dns.TypeA:
-			ip := checkHostsFile(question.Name)
-			if ip != "" {
-				m := new(dns.Msg)
-				m.SetReply(r)
-				m.Answer = append(m.Answer, &dns.A{
-					Hdr: dns.RR_Header{Name: r.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
-					A:   net.ParseIP(ip),
-				})
-				w.WriteMsg(m)
-			} else {
-				queryRemote(w, r)
-			}
-		case dns.TypeMX:
-			// Handle MX record queries
-			m := new(dns.Msg)
-			m.SetReply(r)
-			m.SetRcode(r, dns.RcodeNameError)
-			w.WriteMsg(m)
+			rrtype = dns.TypeA
+		case dns.TypeAAAA:
+			rrtype = dns.TypeAAAA
 		default:
-			// Respond with NXDOMAIN for unsupported record types
 			m := new(dns.Msg)
 			m.SetReply(r)
 			m.SetRcode(r, dns.RcodeNameError)
 			w.WriteMsg(m)
+			continue
 		}
+
+		if ip != "" {
+			if rrtype == dns.TypeA {
+				rr = &dns.A{
+					Hdr: dns.RR_Header{Name: question.Name, Rrtype: rrtype, Class: dns.ClassINET, Ttl: 0},
+					A:   net.ParseIP(ip),
+				}
+			} else {
+				rr = &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: question.Name, Rrtype: rrtype, Class: dns.ClassINET, Ttl: 0},
+					AAAA: net.ParseIP(ip),
+				}
+			}
+		} else {
+			queryRemote(w, r)
+		}
+
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Answer = append(m.Answer, rr)
+		w.WriteMsg(m)
 	}
 }
 

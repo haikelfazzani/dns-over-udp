@@ -16,7 +16,7 @@ func TestLookupIP(t *testing.T) {
 			m.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 
 			c := new(dns.Client)
-			in, _, err := c.Exchange(m, "localhost:53")
+			in, _, err := c.Exchange(m, "localhost:5053")
 
 			fmt.Print("\n", in.Answer)
 

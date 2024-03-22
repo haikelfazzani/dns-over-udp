@@ -131,7 +131,7 @@ func queryRemote(w dns.ResponseWriter, r *dns.Msg) {
 	for _, dnsServer := range config.ListRaddr {
 		in, _, err := c.Exchange(r, dnsServer)
 		if err == nil {
-			fmt.Printf("\n> %s[%s] %s\n(%s)%s\n", ColorYellow, dnsServer, &r.Question[0], in.Answer[0], ColorReset)
+			fmt.Printf("\n> %s[%s] %s (%s)%s", ColorYellow, dnsServer, string(r.Question[0].Name), in.Answer[0], ColorReset)
 			w.WriteMsg(in)
 			return
 		}

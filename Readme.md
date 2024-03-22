@@ -1,4 +1,5 @@
 # DNS forward over UDP
+🌐 DNS over UDP: receiving a request from a client and then forwarding that request to DNS Resolver to obtain the answer.
 
 ### Build and Run
 
@@ -13,15 +14,8 @@ go build main.go && sudo ./main
 var config = &DNSConfig{
 	HostsFilePath: "/etc/hosts",
 	Laddr:         ":53",
-	ListRaddr:         "8.8.8.8:53",
+	ListRaddr:     "8.8.8.8:53",
 	UseWildCard:   true,
 	Timeout:       15,
 }
 ```
-
-### Todo
-
-- [x] Support wildcards
-- [ ] support for multiple hosts file
-- [ ] block by country
-- [ ] block domain by IP

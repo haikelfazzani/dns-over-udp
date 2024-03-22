@@ -24,15 +24,15 @@ const (
 type DNSConfig struct {
 	HostsFilePath string
 	Laddr         string
-	Raddr         string
+	ListRaddr     []string
 	UseWildCard   bool // *.google.com
 	Timeout       uint8
 }
 
 var config = &DNSConfig{
 	HostsFilePath: "/etc/hosts",
-	Laddr:         ":53",
-	Raddr:         "8.8.8.8:53",
+	Laddr:         ":5053",
+	ListRaddr:     []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "9.9.9.9:53"},
 	UseWildCard:   true,
 	Timeout:       15,
 }
@@ -107,11 +107,11 @@ func checkHostsFile(host string) string {
 
 				domain := wildcardPattern.FindStringSubmatch(hosts_domain)[1]
 				if strings.HasSuffix(host, "."+domain) {
-					fmt.Printf("%s[%s] Resolve From Hosts File: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
+					fmt.Printf("%s[%s] Resolve From Hosts File: %s (%s) %s\n", ColorBlue, hosts_domain, host, ip, ColorReset)
 					return ip
 				}
 			} else if host == hosts_domain {
-				fmt.Printf("%s[%s] Resolve From Hosts File: %s (%s) %s\n", ColorYellow, hosts_domain, host, ip, ColorReset)
+				fmt.Printf("%s[hosts file] %s (%s) %s\n", ColorBlue, host, ip, ColorReset)
 				return ip
 			}
 		}
@@ -121,7 +121,6 @@ func checkHostsFile(host string) string {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%s[] Resolve From %s: %s%s\n", ColorGreen, config.Raddr, host, ColorReset)
 	return ""
 }
 
@@ -129,18 +128,18 @@ func queryRemote(w dns.ResponseWriter, r *dns.Msg) {
 	c := new(dns.Client)
 	c.Timeout = time.Second * time.Duration(config.Timeout)
 
-	in, _, err := c.Exchange(r, config.Raddr)
-
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			log.Printf("> UDP read timeout: %s", err)
-			log.Printf("%sRetrying query %s %s", ColorBlue, config.Raddr, ColorReset)
+	for _, dnsServer := range config.ListRaddr {
+		in, _, err := c.Exchange(r, dnsServer)
+		if err == nil {
+			fmt.Printf("\n> %s[%s] %s\n(%s)%s\n", ColorYellow, dnsServer, &r.Question[0], in.Answer[0], ColorReset)
 			w.WriteMsg(in)
 			return
 		}
-		log.Fatal(err)
-
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			log.Printf("> UDP read timeout: %s", err)
+			log.Printf("%sRetrying query %s %s", ColorRed, dnsServer, ColorReset)
+			continue
+		}
+		log.Println(err)
 	}
-
-	w.WriteMsg(in)
 }

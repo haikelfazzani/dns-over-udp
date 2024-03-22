@@ -13,7 +13,7 @@ go build main.go && sudo ./main
 var config = &DNSConfig{
 	HostsFilePath: "/etc/hosts",
 	Laddr:         ":53",
-	Raddr:         "8.8.8.8:53",
+	ListRaddr:         "8.8.8.8:53",
 	UseWildCard:   true,
 	Timeout:       15,
 }
